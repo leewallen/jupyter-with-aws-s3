@@ -19,12 +19,17 @@ fi
 creds_json=$(aws --profile default --region us-west-2 sts get-session-token)
 
 docker run -d --name jupyter --rm -p 8888:8888 \
-  -v `pwd`/notebooks/:/home/joyvan/work/ \
+  -v `pwd`/notebooks:/home/$USER/work \
   -e AWS_ACCESS_KEY_ID=$(echo "$creds_json" | jq -r .Credentials.AccessKeyId) \
   -e AWS_SECRET_ACCESS_KEY=$(echo "$creds_json" | jq -r .Credentials.SecretAccessKey) \
   -e AWS_SESSION_TOKEN=$(echo "$creds_json" | jq -r .Credentials.SessionToken) \
+  -e NB_UID=`id -u` \
+  -e NB_GID=`id -g` \
+  -e NB_USER=$USER \
+  -e CHOWN_HOME=yes \
+  -e CHOWN_EXTRA_OPTS='-R' \
   -e GRANT_SUDO=yes \
+  -w /home/$USER \
   leewallen/jupyter-docker:f7b90d697c9c jupyter lab --ip=0.0.0.0 --allow-root --LabApp.token ''
 
 echo -e "Use 'localhost:8888' in your browser to access JupyterLab\n"
-

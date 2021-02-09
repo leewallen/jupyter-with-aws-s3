@@ -53,19 +53,29 @@ docker run -d --name jupyter --rm -p 8888:8888 \
   jupyter-docker:yourtag jupyter lab --LabApp.token ''
 ```
 
+This repository contains an example run script that does the following:
+
+- Makes a volume for the notebook directory that exists as a sub directory in the current directory.
+- Passes environment variables in the standard AWS format, which is then used by the AWS SDK when establishing a connection with S3 while reading data from an S3 location.
+- The jupyter/docker-stacks related docker images use `NB_UID` and `NB_USER` to identify the user. By default, the user is `jovyan` and the user ID is `1000`. The script sets the user name to `$USER` and the user ID is set to your current user ID (on macOS at least).
+- Sets the `NB_GID`, or the notebooks group ID, to your user's group ID (on macOS).
+- Sets the user and group referenced by `NB_UID` and `NG_GID` as owner of the home directory, and does that recursively for all files and subdirectories in the home directory.
+- Sets the working folder to `/home/$USER`
+- Starts jupyter in Jupyter Lab mode, and tells the container to not prompt for a token.
+- Grants user the ability to sudo as root in the container.
 
 ## Configure Spark
 
+Once the Jupyter Lab docker container is running, open [http://localhost:8888](http://localhost:8888) in your browser, and then either use the `./work/AwsS3AccessTemporaryCredentials.ipynb` notebook, or create a new notebook using the Python Kernel tile.
+
+### Example Configuration Using Temporary Credentials Provider
 
 ```python
 from pyspark.sql import SparkSession
-```
 
-
-```python
 spark = SparkSession.builder \
     .master("local") \
-    .appName("Covid19TimeSeries") \
+    .appName("Your Spark App Name") \
     .config("fs.s3a.path.style.access", True) \
     .config("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider") \
     .config("fs.s3a.endpoint", "s3.us-west-2.amazonaws.com") \
@@ -79,19 +89,11 @@ spark = SparkSession.builder \
 
 At this point you should be able to read data in from S3.
 
+The information below is data from the CDC's COVID-19 time-series dataset. I converted the JSON to Parquet, and then uploaded the data to S3 to use when trying out Jupyter Labs.
 
 ```python
 s3path = "s3a://dev-leewallen-spark/covid-19-time-series/parquet/covid-19.parquet"
 parquetDF = spark.read.parquet(s3path)
-```
-
-
-```python
-from pyspark.sql.functions import col 
-```
-
-
-```python
 parquetDF.show(5)
 ```
 
@@ -108,8 +110,9 @@ parquetDF.show(5)
     
 
 
-
 ```python
+from pyspark.sql.functions import col 
+
 parquetDF.filter((col('`Country/Region`') == "US") & (col('Confirmed') > 0)).show(5)
 ```
 
